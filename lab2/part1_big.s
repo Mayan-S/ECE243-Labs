@@ -1,37 +1,32 @@
 .global _start
-
 _start:
-    la      s0, NUMBERS
-    li      s1, 15
-    lw      s2, 0(s0)
-    addi    s0, s0, 4
-    addi    s1, s1, -1
 
-LOOP:
-    beq     s1, zero, DONE
-    lw      t0, 0(s0)
-    bge     s2, t0, NOT_LARGER
-    mv      s2, t0
-    
-NOT_LARGER:
-    addi    s0, s0, 4
-    addi    s1, s1, -1
-    j       LOOP
+    la s0, result           # s0 = address of result
+    lw t0, 4(s0)            # t0 = count of numbers
+    la t1, numbers          # t1 = address of numbers
+    lw t2, 0(t1)            # t2 = first number (largest so far)
 
-DONE:
-    la      t1, RESULT
-    sw      s2, 0(t1)
-    li      t2, 0xFF200000
-    sw      s2, 0(t2)
+loop: 
+    addi t0, t0, -1         # decrement counter
+    ble t0, zero, finished  # if done, exit loop
+    addi t1, t1, 4          # move to next word
+    lw t3, (t1)             # t3 = next number
+    bge t2, t3, loop        # skip if current largest is bigger
+    mv t2, t3               # update largest
+    j loop                  # repeat
 
-END:
-    j       END
+finished: 
+    sw t2, (s0)             # store result
+    li t4, 0xFF200000       # t4 = LED address
+    sw t2, 0(t4)            # write to LEDs
+
+iloop: j iloop              # halt
+
 
 .data
-.align 2
 
-NUMBERS:
-    .word   150, 823, 47, 512, 999, 256, 678, 91, 1000, 333, 444, 127, 888, 555, 721
-
-RESULT:
-    .word   0
+result: .word 0
+n:      .word 15
+numbers: .word 42, 517, 893, 156, 724
+         .word 301, 987, 445, 612, 78
+         .word 234, 999, 567, 189, 845

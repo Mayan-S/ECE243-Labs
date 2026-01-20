@@ -1,45 +1,43 @@
 .global _start
-
 _start:
-    li      s0, 718293
-    la      s1, Snumbers
-    li      s2, 0
-    li      s3, -1
 
-SEARCH_LOOP:
-    lw      t0, 0(s1)
-    beq     t0, zero, NOT_FOUND
-    beq     t0, s0, FOUND
-    addi    s1, s1, 4
-    addi    s2, s2, 1
-    j       SEARCH_LOOP
+    li s0, 718293           # s0 = student number to find
 
-FOUND:
-    la      t1, Grades
-    add     t1, t1, s2
-    lbu     s3, 0(t1)
+    la t0, Snumbers         # t0 = address of student numbers
+    la t1, Grades           # t1 = address of grades
+    li t2, 0                # t2 = index counter
 
-NOT_FOUND:
-    la      t3, result
-    sb      s3, 0(t3)
-    li      t4, 0xFF200000
-    sw      s3, 0(t4)
+search_loop:
+    lw t3, 0(t0)            # t3 = current student number
+    beq t3, zero, not_found # if zero, end of list
+    beq t3, s0, found       # if match, found it
+    addi t0, t0, 4          # move to next student number
+    addi t2, t2, 1          # increment index
+    j search_loop           # repeat
 
-iloop: 
-    j       iloop
+found:
+    add t4, t1, t2          # t4 = address of grade (bytes, no multiply)
+    lb s3, 0(t4)            # s3 = grade (load byte)
+    j store_result          # go store it
 
-result: 
-    .byte   0
+not_found:
+    li s3, -1               # s3 = -1 (not found)
 
-.align 2
+store_result:
+    la t5, result           # t5 = address of result
+    sb s3, 0(t5)            # store grade in result (store byte)
+    li t6, 0xFF200000       # t6 = LED address
+    sw s3, 0(t6)            # write to LEDs
 
-Snumbers: 
-    .word   10392584, 423195, 644370, 496059, 296800
-    .word   265133, 68943, 718293, 315950, 785519
-    .word   982966, 345018, 220809, 369328, 935042
-    .word   467872, 887795, 681936, 0
+iloop: j iloop              # halt
 
-Grades: 
-    .byte   99, 68, 90, 85, 91, 67, 80
-    .byte   66, 95, 91, 91, 99, 76, 68
-    .byte   69, 93, 90, 72
+result: .byte 0
+
+Snumbers: .word 10392584, 423195, 644370, 496059, 296800
+          .word 265133, 68943, 718293, 315950, 785519
+          .word 982966, 345018, 220809, 369328, 935042
+          .word 467872, 887795, 681936, 0
+
+Grades: .byte 99, 68, 90, 85, 91, 67, 80
+        .byte 66, 95, 91, 91, 99, 76, 68
+        .byte 69, 93, 90, 72
