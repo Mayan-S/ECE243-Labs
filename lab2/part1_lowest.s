@@ -1,11 +1,12 @@
 .global _start
 _start:
 
-    la s0, result           # s0 = address of result
-    lw t0, 4(s0)            # t0 = count of numbers
-    la t1, numbers          # t1 = address of numbers
-    lw t2, 0(t1)            # t2 = first number (lowest so far)
+    la s0, result           # s0 = address of result                # The address of the result
+    lw t0, 4(s0)            # t0 = count of numbers                 # The number of numbers is in t0
+    la t1, numbers          # t1 = address of numbers               # The address of the numbers is in t1     #&numbers[0]
+    lw t2, 0(t1)            # t2 = first number (lowest so far)     # Keep the largest number so far in t2
 
+#Loop to search for the biggest number
 loop: 
     addi t0, t0, -1         # decrement counter
     ble t0, zero, finished  # if done, exit loop
