@@ -6,6 +6,8 @@ _start:
 
 /* Your code here  */
 
+    li sp, 0x800000         # initialize stack pointer
+
     la s0, TEST_NUM         # s0 = address of array
     li s1, 0                # s1 = largest ones
     li s2, 0                # s2 = largest zeroes
@@ -37,9 +39,7 @@ end_main:
 
 stop: j stop
 
-/* ONES: counts 1's in a word
-   Input: a0 = word
-   Output: a0 = count of 1's */
+/* ONES: counts 1's in a word. Input: a0 = word. Output: a0 = count of 1's */
 ONES:
     addi sp, sp, -12        # allocate stack
     sw t2, 0(sp)            # save t2

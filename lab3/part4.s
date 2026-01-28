@@ -1,15 +1,15 @@
 /* Program to Count the number of 1's and Zeroes in a sequence of 32-bit words,
 determines the largest of each, and displays on LEDs alternately */
 
-/* Q: Which is faster, CPUlator or real DE1-SoC?
-   A: The real DE1-SoC is faster because it runs on actual hardware.
-      CPUlator is a browser-based simulator with overhead.
-      Increase delay iterations for real hardware. */
+/* Which is faster, CPUlator or real DE1-SoC? 
+   Answer: The real DE1-SoC is faster because it runs on actual hardware. Therefore, you must increase delay iterations for real hardware. */
 
 .global _start
 _start:
 
 /* Your code here  */
+
+    li sp, 0x800000         # initialize stack pointer
 
     la s0, TEST_NUM         # s0 = address of array
     li s1, 0                # s1 = largest ones
@@ -49,9 +49,7 @@ display_loop:
     jal ra, DELAY           # wait
     j display_loop          # repeat forever
 
-/* ONES: counts 1's in a word
-   Input: a0 = word
-   Output: a0 = count of 1's */
+/* ONES: counts 1's in a word. Input: a0 = word. Output: a0 = count of 1's */
 ONES:
     addi sp, sp, -12        # allocate stack
     sw t2, 0(sp)            # save t2
@@ -82,7 +80,7 @@ DELAY:
     addi sp, sp, -4         # allocate stack
     sw t0, 0(sp)            # save t0
 
-    li t0, 500000           # delay count (adjust as needed)
+    li t0, 500000           # delay count
 
 delay_loop:
     addi t0, t0, -1         # decrement

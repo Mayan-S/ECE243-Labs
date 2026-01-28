@@ -14,9 +14,7 @@ _start:
 
     stop: j stop
 
-/* ONES: counts 1's in a word
-   Input: a0 = word
-   Output: a0 = count of 1's */
+/* ONES: counts 1's in a word. Input: a0 = word. Output: a0 = count of 1's */
 ONES:
     li t2, 0                # t2 = counter
     li t3, 32               # t3 = bit counter
