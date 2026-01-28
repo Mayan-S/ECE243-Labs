@@ -83,12 +83,12 @@ DELAY:
     li t0, 500000           # delay count
 
 delay_loop:
-    addi t0, t0, -1         # decrement
+    addi t0, t0, -1          # decrement
     bne t0, zero, delay_loop # loop if not zero
 
-    lw t0, 0(sp)            # restore t0
-    addi sp, sp, 4          # deallocate stack
-    ret                     # return
+    lw t0, 0(sp)             # restore t0
+    addi sp, sp, 4           # deallocate stack
+    ret                      # return
 
 .data
 TEST_NUM:  .word 0x4a01fead, 0xF677D671,0xDC9758D5,0xEBBD45D2,0x8059519D
