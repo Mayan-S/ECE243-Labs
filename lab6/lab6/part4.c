@@ -1,8 +1,8 @@
 /* Part 4: Audio echo effect
- * Reads audio from the input and outputs it with an echo,
- * simulating a canyon echo effect.
- * Delay is ~0.4 seconds (3200 samples at 8 kHz).
- * The echo feeds back so it repeats and decays naturally.
+   Reads audio from the input and outputs it with an echo,
+   simulating a canyon echo effect.
+   Delay is ~0.4 seconds (3200 samples at 8 kHz).
+   The echo feeds back so it repeats and decays naturally.
  */
 
 #define AUDIO_BASE 0xFF203040                     // audio port base address
@@ -60,5 +60,5 @@ int main(void) {
         }
     }
 
-    return 0;                                     // never reached
+    return 0;                                     
 }

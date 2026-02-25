@@ -1,8 +1,8 @@
 /* Part 3: Square wave generator
- * Outputs a square wave to the audio device.
- * The 10 switches on the DE1-SoC control the frequency
- * across the audible range from ~100 Hz to ~2000 Hz.
- * Sampling rate is 8000 Hz.
+   Outputs a square wave to the audio device.
+   The 10 switches on the DE1-SoC control the frequency
+   across the audible range from ~100 Hz to ~2000 Hz.
+   Sampling rate is 8000 Hz.
  */
 
 #define AUDIO_BASE 0xFF203040                     // audio port base address
@@ -52,5 +52,5 @@ int main(void) {
         }
     }
 
-    return 0;                                     // never reached
+    return 0;                                     
 }

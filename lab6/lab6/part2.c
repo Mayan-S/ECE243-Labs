@@ -1,7 +1,6 @@
 /* Part 2: Audio pass-through
- * Reads audio samples from the input (microphone) FIFO
- * and writes them directly to the output (speaker) FIFO.
- * On CPUlator, the input produces a sawtooth wave.
+   Reads audio samples from the input (microphone) FIFO
+   and writes them directly to the output (speaker) FIFO.
  */
 
 #define AUDIO_BASE 0xFF203040                     // audio port base address
@@ -9,10 +8,10 @@
 int main(void) {
     volatile int *audio_ptr = (int *)AUDIO_BASE;  // pointer to audio port base address
 
-    *(audio_ptr) = 0xC;                           // clear both input and output FIFOs (bits 3:2 = CO|CI)
+    *(audio_ptr) = 0xC;                           // clear both input and output FIFOs
     *(audio_ptr) = 0x0;                           // release the clear by writing 0 to control register
 
-    while (1) {                                   // infinite loop for continuous operation
+    while (1) {                                   
         int fifospace = *(audio_ptr + 1);         // read the FIFO space register (offset +1 word = +4 bytes)
 
         int ravilable = (fifospace >> 8) & 0xFF;  // bits 15:8 = number of samples available to read (right)
@@ -31,5 +30,5 @@ int main(void) {
         }
     }
 
-    return 0;                                     // never reached
+    return 0;                                     
 }
