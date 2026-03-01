@@ -45,7 +45,7 @@ int main(void) {
             int right_delayed = right_buffer[buf_index]; // get the delayed sample from the right buffer
 
             // mix current input with damped delayed output (damping = 0.5, using >> 1)
-            int left_out = left_in + (left_delayed >> 1);   // current + half of delayed = echo
+            int left_out = left_in + (left_delayed >> 1);   // current + half of delayed = echo  //The >> 1 shifts right by 1 bit, which divides by 2. The result is: you hear the live audio at full volume plus the echo at half volume.
             int right_out = right_in + (right_delayed >> 1); // same for right channel
 
             left_buffer[buf_index] = left_out;    // store the mixed output into the buffer for future echo
