@@ -1,7 +1,4 @@
-/* Part 1: Bresenham's line-drawing algorithm
- * Draws four colored lines on the VGA display:
- * blue diagonal, green diagonal, red horizontal, pink diagonal
- */
+/* Draws four colored lines on the VGA display: blue diagonal, green diagonal, red horizontal, pink diagonal */
 
 #include <stdlib.h>                                     // needed for abs()
 
@@ -36,8 +33,7 @@ void clear_screen(void) {
             plot_pixel(x, y, 0x0000);                   // set pixel to black
 }
 
-/* draw_line: Bresenham's line-drawing algorithm
- * Draws a line from (x0,y0) to (x1,y1) in the given color */
+/* Draws a line from (x0,y0) to (x1,y1) in the given color */
 void draw_line(int x0, int y0, int x1, int y1, short int color) {
     int is_steep = abs(y1 - y0) > abs(x1 - x0);        // check if line is steeper than 45 degrees
 
@@ -75,7 +71,6 @@ void draw_line(int x0, int y0, int x1, int y1, short int color) {
     }
 }
 
-/* swap: exchanges the values of two integers */
 void swap(int *a, int *b) {
     int temp = *a;                                     // store first value temporarily
     *a = *b;                                           // overwrite first with second

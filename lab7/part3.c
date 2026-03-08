@@ -1,8 +1,4 @@
-/* Part 3: Bouncing boxes animation with double buffering
- * Eight small filled boxes move diagonally and bounce off screen edges.
- * Boxes are connected by lines forming a chain.
- * Uses double buffering for flicker-free animation.
- */
+/* Bouncing boxes animation with double buffering */
 
 #include <stdlib.h>                                     // needed for abs() and rand()
 
@@ -16,14 +12,12 @@ volatile int pixel_buffer_start;                        // global variable: base
 short int Buffer1[240][512];                            // front frame buffer (240 rows, 512 columns with padding)
 short int Buffer2[240][512];                            // back frame buffer
 
-// arrays to store box positions, directions, and colors
 int box_x[NUM_BOXES];                                   // x position of each box
 int box_y[NUM_BOXES];                                   // y position of each box
 int box_dx[NUM_BOXES];                                  // x direction of each box (+1 or -1)
 int box_dy[NUM_BOXES];                                  // y direction of each box (+1 or -1)
 short int box_color[NUM_BOXES];                         // color of each box
 
-// previous positions for erasing (need two frames back for double buffering)
 int prev_x[NUM_BOXES][2];                               // previous x positions for both buffers
 int prev_y[NUM_BOXES][2];                               // previous y positions for both buffers
 int buf_idx = 0;                                        // tracks which buffer we are drawing to (0 or 1)
@@ -38,13 +32,12 @@ void draw_box(int x, int y, short int color);           // forward declaration
 int main(void) {
     volatile int *pixel_ctrl_ptr = (int *)PIXEL_BUF_CTRL; // pointer to pixel buffer controller
 
-    // initialize boxes with random positions, directions, and colors
     for (int i = 0; i < NUM_BOXES; i++) {               // loop through all 8 boxes
         box_x[i] = (rand() % (SCREEN_X - BOX_SIZE));   // random x position within screen bounds
         box_y[i] = (rand() % (SCREEN_Y - BOX_SIZE));   // random y position within screen bounds
         box_dx[i] = ((rand() % 2) * 2) - 1;            // random direction: -1 or +1
         box_dy[i] = ((rand() % 2) * 2) - 1;            // random direction: -1 or +1
-        // generate a random bright color in RGB565 format
+        
         box_color[i] = ((rand() % 32) << 11) | ((rand() % 64) << 5) | (rand() % 32);
         if (box_color[i] == 0) box_color[i] = 0xFFFF;  // avoid black color (would be invisible)
         prev_x[i][0] = box_x[i];                       // initialize previous position buffer 0
@@ -53,19 +46,16 @@ int main(void) {
         prev_y[i][1] = box_y[i];                       // initialize previous position buffer 1
     }
 
-    /* set front pixel buffer to Buffer 1 */
     *(pixel_ctrl_ptr + 1) = (int)&Buffer1;             // write Buffer1 address to backbuffer register
     wait_for_vsync();                                  // swap to make Buffer1 the front buffer
     pixel_buffer_start = *pixel_ctrl_ptr;              // read front buffer address
     clear_screen();                                    // clear the front buffer (Buffer1)
 
-    /* set back pixel buffer to Buffer 2 */
     *(pixel_ctrl_ptr + 1) = (int)&Buffer2;             // write Buffer2 address to backbuffer register
     pixel_buffer_start = *(pixel_ctrl_ptr + 1);        // point to back buffer for drawing
     clear_screen();                                    // clear the back buffer (Buffer2)
 
     while (1) {                                        // infinite animation loop
-        // erase previous boxes and lines from this buffer
         for (int i = 0; i < NUM_BOXES; i++) {          // loop through all boxes
             draw_box(prev_x[i][buf_idx], prev_y[i][buf_idx], 0x0000); // erase old box with black
         }
@@ -149,7 +139,6 @@ void draw_box(int x, int y, short int color) {
     }
 }
 
-/* draw_line: Bresenham's line-drawing algorithm */
 void draw_line(int x0, int y0, int x1, int y1, short int color) {
     int is_steep = abs(y1 - y0) > abs(x1 - x0);        // check if steep
 

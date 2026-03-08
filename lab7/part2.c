@@ -1,8 +1,4 @@
-/* Part 2: Bouncing horizontal line animation
- * A horizontal line moves up and down the screen,
- * bouncing off the top and bottom edges.
- * Uses vsync for timing (no double buffering).
- */
+/* A horizontal line moves up and down the screen */
 
 #include <stdlib.h>                                     // needed for abs()
 
@@ -47,8 +43,7 @@ int main(void) {
     return 0;                                          // never reached
 }
 
-/* wait_for_vsync: synchronizes with VGA controller by requesting a buffer swap
- * and polling the S bit in the status register until it becomes 0 */
+/* wait_for_vsync: synchronizes with VGA controller by requesting a buffer swap */
 void wait_for_vsync(void) {
     volatile int *pixel_ctrl_ptr = (int *)PIXEL_BUF_CTRL; // pointer to pixel buffer controller
     *pixel_ctrl_ptr = 1;                               // write 1 to Buffer register to request swap (sets S=1)
