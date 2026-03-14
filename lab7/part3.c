@@ -35,7 +35,7 @@ int main(void) {
     for (int i = 0; i < NUM_BOXES; i++) {               // loop through all 8 boxes
         box_x[i] = (rand() % (SCREEN_X - BOX_SIZE));   // random x position within screen bounds
         box_y[i] = (rand() % (SCREEN_Y - BOX_SIZE));   // random y position within screen bounds
-        box_dx[i] = ((rand() % 2) * 2) - 1;            // random direction: -1 or +1
+        box_dx[i] = ((rand() % 2) * 2) - 1;            // random direction: -1 or +1  //Change the value 1 to speed up
         box_dy[i] = ((rand() % 2) * 2) - 1;            // random direction: -1 or +1
         
         box_color[i] = ((rand() % 32) << 11) | ((rand() % 64) << 5) | (rand() % 32);
