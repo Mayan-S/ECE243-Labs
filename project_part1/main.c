@@ -22,7 +22,7 @@ int main(void) {
 
     int max_amplitude = 0;                        // tracks the highest sample value seen
     int sample_count = 0;                         // counts samples in the current window
-    int window_size = 800;                        // number of samples per measurement window (0.1s at 8kHz)
+    int window_size = 800;                        // number of samples per measurement window (0.1s at 8kHz) (At 8000 samples per second, 800 samples = 0.1 seconds. We measure the peak amplitude over each 0.1-second window, then display it and start fresh)
 
     display_hex(0);                               // clear HEX displays to show 0000 initially
 
@@ -71,8 +71,6 @@ int main(void) {
     return 0;                                     // never reached
 }
 
-/* display_hex: shows a value as a hex number on HEX3-0 displays
- * Each HEX display shows one hex digit (4 bits) using 7-segment encoding */
 void display_hex(int value) {
     volatile int *HEX_ptr = (int *)HEX_BASE1;    // pointer to HEX3-0 register
 
@@ -82,10 +80,10 @@ void display_hex(int value) {
     int digit3 = (value >> 12) & 0xF;            // extract bits 15:12
 
     int hex_display = 0;                          // build the full 32-bit register value
-    hex_display |= hex_codes[digit0];             // HEX0 occupies bits 7:0
-    hex_display |= hex_codes[digit1] << 8;       // HEX1 occupies bits 15:8
-    hex_display |= hex_codes[digit2] << 16;      // HEX2 occupies bits 23:16
-    hex_display |= hex_codes[digit3] << 24;      // HEX3 occupies bits 31:24
+    hex_display = hex_display | hex_codes[digit0];             // HEX0 occupies bits 7:0
+    hex_display = hex_display | (hex_codes[digit1] << 8);     // HEX1 occupies bits 15:8
+    hex_display = hex_display | (hex_codes[digit2] << 16);    // HEX2 occupies bits 23:16
+    hex_display = hex_display | (hex_codes[digit3] << 24);    // HEX3 occupies bits 31:24
 
     *HEX_ptr = hex_display;                      // write all four displays at once
 }
