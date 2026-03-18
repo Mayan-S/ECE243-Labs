@@ -1,7 +1,12 @@
+/* Mic Input — Read audio samples and track the max amplitude value.
+ * Displays peak amplitude as a readable hex number on HEX3-0 displays.
+ * Includes a noise threshold to filter out background noise.
+ */
+
 #define AUDIO_BASE 0xFF203040                     // audio port base address
-#define LEDR_BASE  0xFF200000                     // red LED base address
 #define HEX_BASE1  0xFF200020                     // HEX3-0 base address
-#define HEX_BASE2  0xFF200030                     // HEX5-4 base address
+
+#define NOISE_THRESHOLD 0x0100                    // amplitudes below this are treated as silence
 
 // 7-segment bit patterns for hex digits 0-F
 const char hex_codes[16] = {
@@ -15,14 +20,13 @@ void display_hex(int value);                      // forward declaration
 
 int main(void) {
     volatile int *audio_ptr = (int *)AUDIO_BASE;  // pointer to audio port
-    volatile int *LED_ptr = (int *)LEDR_BASE;     // pointer to red LEDs
 
     *(audio_ptr) = 0x4;                           // clear input FIFO (bit 2 = CI)
     *(audio_ptr) = 0x0;                           // release the clear
 
     int max_amplitude = 0;                        // tracks the highest sample value seen
     int sample_count = 0;                         // counts samples in the current window
-    int window_size = 800;                        // number of samples per measurement window (0.1s at 8kHz) (At 8000 samples per second, 800 samples = 0.1 seconds. We measure the peak amplitude over each 0.1-second window, then display it and start fresh)
+    int window_size = 800;                        // number of samples per measurement window (0.1s at 8kHz)
 
     display_hex(0);                               // clear HEX displays to show 0000 initially
 
@@ -59,8 +63,10 @@ int main(void) {
 
             // after one window of samples, output the result and reset
             if (sample_count >= window_size) {    // if we've collected enough samples
-                *LED_ptr = max_amplitude >> 14;   // display top bits on LEDs (scale to 10 LEDs)
-                display_hex(max_amplitude);       // display peak amplitude as hex on HEX3-0
+                if (max_amplitude < NOISE_THRESHOLD) // if below noise threshold
+                    max_amplitude = 0;            // treat as silence
+
+                display_hex(max_amplitude);       // display peak amplitude on HEX3-0
 
                 max_amplitude = 0;                // reset max for next window
                 sample_count = 0;                 // reset sample counter
@@ -71,19 +77,20 @@ int main(void) {
     return 0;                                     // never reached
 }
 
+/* display_hex: shows a value as a hex number on HEX3-0 displays */
 void display_hex(int value) {
     volatile int *HEX_ptr = (int *)HEX_BASE1;    // pointer to HEX3-0 register
 
-    int digit0 = value & 0xF;                    // extract bits 3:0 (rightmost hex digit)
+    int digit0 = value & 0xF;                    // extract bits 3:0
     int digit1 = (value >> 4) & 0xF;             // extract bits 7:4
     int digit2 = (value >> 8) & 0xF;             // extract bits 11:8
     int digit3 = (value >> 12) & 0xF;            // extract bits 15:12
 
     int hex_display = 0;                          // build the full 32-bit register value
     hex_display = hex_display | hex_codes[digit0];             // HEX0 occupies bits 7:0
-    hex_display = hex_display | (hex_codes[digit1] << 8);     // HEX1 occupies bits 15:8
-    hex_display = hex_display | (hex_codes[digit2] << 16);    // HEX2 occupies bits 23:16
-    hex_display = hex_display | (hex_codes[digit3] << 24);    // HEX3 occupies bits 31:24
+    hex_display = hex_display | (hex_codes[digit1] << 8);      // HEX1 occupies bits 15:8
+    hex_display = hex_display | (hex_codes[digit2] << 16);     // HEX2 occupies bits 23:16
+    hex_display = hex_display | (hex_codes[digit3] << 24);     // HEX3 occupies bits 31:24
 
     *HEX_ptr = hex_display;                      // write all four displays at once
 }
