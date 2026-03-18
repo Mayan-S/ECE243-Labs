@@ -1,10 +1,13 @@
-/* Mic Diagnostic — displays raw average amplitude on HEX.
- * No filtering, no threshold. Just shows what the mic is producing.
- * Use this to find the noise floor, then we'll add filtering.
+/* Mic Input — Peak amplitude detection with noise gate.
+ * Noise floor measured at ~0xC000, so threshold set above that.
+ * Only real sounds (above threshold) show on HEX3-0.
+ * Silence shows 0000.
  */
 
 #define AUDIO_BASE 0xFF203040                     // audio port base address
 #define HEX_BASE1  0xFF200020                     // HEX3-0 base address
+
+#define NOISE_FLOOR 0xD000                        // anything at or below this is noise
 
 // 7-segment bit patterns for hex digits 0-F
 const char hex_codes[16] = {
@@ -25,29 +28,36 @@ int main(void) {
     display_hex(0);                               // show 0000 initially
 
     while (1) {                                   // infinite loop
-        long long sum = 0;                        // running sum of absolute values
-        int count = 0;                            // number of samples read
+        int max_amplitude = 0;                    // peak value for this window
 
         // collect 4000 samples (0.5 seconds at 8kHz)
+        int count = 0;                            // sample counter
         while (count < 4000) {                    // keep reading until we have enough
             int fifospace = *(audio_ptr + 1);     // read FIFO space register
             int lavailable = fifospace & 0xFF;     // left input samples available
 
             if (lavailable > 0) {                 // if a sample is ready
-                int sample = *(audio_ptr + 2);    // read left channel only
-                *(audio_ptr + 3);                 // read and discard right channel (must read both)
+                int sample = *(audio_ptr + 2);    // read left channel
+                *(audio_ptr + 3);                 // read and discard right channel
 
                 if (sample < 0)                   // take absolute value
                     sample = -sample;             // make positive
 
-                sum = sum + sample;               // add to running total
+                if (sample > max_amplitude)       // if this is the loudest so far
+                    max_amplitude = sample;       // update the peak
+
                 count++;                          // one more sample collected
             }
         }
 
-        int average = (int)(sum / 4000);          // compute the average amplitude
-
-        display_hex(average);                     // display it raw on HEX3-0
+        // apply noise gate: only show values above the noise floor
+        if (max_amplitude <= NOISE_FLOOR) {       // if peak is within the noise range
+            display_hex(0);                       // show 0000 (silence)
+        } else {
+            // subtract noise floor so the display starts from 0
+            int display_value = max_amplitude - NOISE_FLOOR; // remove noise offset
+            display_hex(display_value);           // show only the signal above noise
+        }
     }
 
     return 0;                                     // never reached
