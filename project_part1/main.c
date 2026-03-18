@@ -1,13 +1,13 @@
-/* Mic Input — Read audio samples and track the max amplitude value.
- * Displays smoothed peak amplitude on HEX3-0 displays.
- * Includes noise threshold and smoothing to prevent erratic display.
+/* Mic Input — Read audio samples and display average loudness.
+ * Uses average amplitude (not peak) for stable, readable output.
+ * Displays the value on HEX3-0 as a hex number.
  */
 
 #define AUDIO_BASE 0xFF203040                     // audio port base address
 #define HEX_BASE1  0xFF200020                     // HEX3-0 base address
 
-#define NOISE_THRESHOLD 0x2000                    // amplitudes below this are treated as silence
-#define SMOOTHING 4                               // smoothing factor (higher = smoother but slower)
+#define NOISE_THRESHOLD 50                        // average amplitudes below this are silence
+#define WINDOW_SIZE 4000                          // samples per window (0.5s at 8kHz)
 
 // 7-segment bit patterns for hex digits 0-F
 const char hex_codes[16] = {
@@ -25,12 +25,10 @@ int main(void) {
     *(audio_ptr) = 0x4;                           // clear input FIFO (bit 2 = CI)
     *(audio_ptr) = 0x0;                           // release the clear
 
-    int max_amplitude = 0;                        // tracks the highest sample value in current window
+    long long sum = 0;                            // running sum of absolute sample values
     int sample_count = 0;                         // counts samples in the current window
-    int window_size = 2400;                       // samples per window (0.3s at 8kHz, slower updates)
-    int smoothed = 0;                             // smoothed display value (persists across windows)
 
-    display_hex(0);                               // clear HEX displays to show 0000 initially
+    display_hex(0);                               // clear HEX displays initially
 
     while (1) {                                   // infinite loop
         int fifospace = *(audio_ptr + 1);         // read FIFO space register
@@ -52,32 +50,23 @@ int main(void) {
             if (abs_right < 0)                    // if negative
                 abs_right = -abs_right;           // make it positive
 
-            // pick the larger of the two channels
-            int sample_amp = abs_left;            // assume left is larger
-            if (abs_right > abs_left)             // if right is actually larger
-                sample_amp = abs_right;           // use right instead
-
-            // update max if this sample is louder
-            if (sample_amp > max_amplitude)       // compare with current max
-                max_amplitude = sample_amp;       // update max
+            // add both channels to the running sum
+            sum = sum + abs_left + abs_right;     // accumulate total loudness
 
             sample_count++;                       // increment sample counter
 
-            // after one window of samples, output the result and reset
-            if (sample_count >= window_size) {    // if we've collected enough samples
+            // after one window, compute average and display
+            if (sample_count >= WINDOW_SIZE) {    // if we've collected enough samples
+                // compute average amplitude across both channels
+                int average = (int)(sum / (WINDOW_SIZE * 2)); // divide by total number of values
 
-                // apply noise threshold
-                if (max_amplitude < NOISE_THRESHOLD) // if below noise floor
-                    max_amplitude = 0;            // treat as silence
+                // apply noise gate
+                if (average < NOISE_THRESHOLD)    // if below noise floor
+                    average = 0;                  // treat as silence
 
-                // apply smoothing: blend new peak with previous displayed value
-                // smoothed = ((SMOOTHING-1) * smoothed + max_amplitude) / SMOOTHING
-                // this prevents sudden jumps in the display
-                smoothed = ((SMOOTHING - 1) * smoothed + max_amplitude) / SMOOTHING;
+                display_hex(average);             // display average amplitude on HEX3-0
 
-                display_hex(smoothed);            // display smoothed amplitude on HEX3-0
-
-                max_amplitude = 0;                // reset max for next window
+                sum = 0;                          // reset sum for next window
                 sample_count = 0;                 // reset sample counter
             }
         }
