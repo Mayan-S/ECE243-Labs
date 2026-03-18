@@ -1,12 +1,13 @@
 /* Mic Input — Read audio samples and track the max amplitude value.
- * Displays peak amplitude as a readable hex number on HEX3-0 displays.
- * Includes a noise threshold to filter out background noise.
+ * Displays smoothed peak amplitude on HEX3-0 displays.
+ * Includes noise threshold and smoothing to prevent erratic display.
  */
 
 #define AUDIO_BASE 0xFF203040                     // audio port base address
 #define HEX_BASE1  0xFF200020                     // HEX3-0 base address
 
-#define NOISE_THRESHOLD 0x0100                    // amplitudes below this are treated as silence
+#define NOISE_THRESHOLD 0x2000                    // amplitudes below this are treated as silence
+#define SMOOTHING 4                               // smoothing factor (higher = smoother but slower)
 
 // 7-segment bit patterns for hex digits 0-F
 const char hex_codes[16] = {
@@ -24,9 +25,10 @@ int main(void) {
     *(audio_ptr) = 0x4;                           // clear input FIFO (bit 2 = CI)
     *(audio_ptr) = 0x0;                           // release the clear
 
-    int max_amplitude = 0;                        // tracks the highest sample value seen
+    int max_amplitude = 0;                        // tracks the highest sample value in current window
     int sample_count = 0;                         // counts samples in the current window
-    int window_size = 800;                        // number of samples per measurement window (0.1s at 8kHz)
+    int window_size = 2400;                       // samples per window (0.3s at 8kHz, slower updates)
+    int smoothed = 0;                             // smoothed display value (persists across windows)
 
     display_hex(0);                               // clear HEX displays to show 0000 initially
 
@@ -63,10 +65,17 @@ int main(void) {
 
             // after one window of samples, output the result and reset
             if (sample_count >= window_size) {    // if we've collected enough samples
-                if (max_amplitude < NOISE_THRESHOLD) // if below noise threshold
+
+                // apply noise threshold
+                if (max_amplitude < NOISE_THRESHOLD) // if below noise floor
                     max_amplitude = 0;            // treat as silence
 
-                display_hex(max_amplitude);       // display peak amplitude on HEX3-0
+                // apply smoothing: blend new peak with previous displayed value
+                // smoothed = ((SMOOTHING-1) * smoothed + max_amplitude) / SMOOTHING
+                // this prevents sudden jumps in the display
+                smoothed = ((SMOOTHING - 1) * smoothed + max_amplitude) / SMOOTHING;
+
+                display_hex(smoothed);            // display smoothed amplitude on HEX3-0
 
                 max_amplitude = 0;                // reset max for next window
                 sample_count = 0;                 // reset sample counter
