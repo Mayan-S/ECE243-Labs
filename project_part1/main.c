@@ -1,13 +1,10 @@
-/* Mic Input — Read audio samples and display average loudness.
- * Uses average amplitude (not peak) for stable, readable output.
- * Displays the value on HEX3-0 as a hex number.
+/* Mic Diagnostic — displays raw average amplitude on HEX.
+ * No filtering, no threshold. Just shows what the mic is producing.
+ * Use this to find the noise floor, then we'll add filtering.
  */
 
 #define AUDIO_BASE 0xFF203040                     // audio port base address
 #define HEX_BASE1  0xFF200020                     // HEX3-0 base address
-
-#define NOISE_THRESHOLD 50                        // average amplitudes below this are silence
-#define WINDOW_SIZE 4000                          // samples per window (0.5s at 8kHz)
 
 // 7-segment bit patterns for hex digits 0-F
 const char hex_codes[16] = {
@@ -22,54 +19,35 @@ void display_hex(int value);                      // forward declaration
 int main(void) {
     volatile int *audio_ptr = (int *)AUDIO_BASE;  // pointer to audio port
 
-    *(audio_ptr) = 0x4;                           // clear input FIFO (bit 2 = CI)
+    *(audio_ptr) = 0x4;                           // clear input FIFO
     *(audio_ptr) = 0x0;                           // release the clear
 
-    long long sum = 0;                            // running sum of absolute sample values
-    int sample_count = 0;                         // counts samples in the current window
-
-    display_hex(0);                               // clear HEX displays initially
+    display_hex(0);                               // show 0000 initially
 
     while (1) {                                   // infinite loop
-        int fifospace = *(audio_ptr + 1);         // read FIFO space register
+        long long sum = 0;                        // running sum of absolute values
+        int count = 0;                            // number of samples read
 
-        int ravailable = (fifospace >> 8) & 0xFF; // samples available in right input FIFO
-        int lavailable = fifospace & 0xFF;         // samples available in left input FIFO
+        // collect 4000 samples (0.5 seconds at 8kHz)
+        while (count < 4000) {                    // keep reading until we have enough
+            int fifospace = *(audio_ptr + 1);     // read FIFO space register
+            int lavailable = fifospace & 0xFF;     // left input samples available
 
-        if (lavailable > 0 && ravailable > 0) {   // if input samples are ready
-            int left_sample = *(audio_ptr + 2);   // read left input sample
-            int right_sample = *(audio_ptr + 3);  // read right input sample
+            if (lavailable > 0) {                 // if a sample is ready
+                int sample = *(audio_ptr + 2);    // read left channel only
+                *(audio_ptr + 3);                 // read and discard right channel (must read both)
 
-            // compute absolute value of left sample
-            int abs_left = left_sample;            // start with the raw value
-            if (abs_left < 0)                     // if negative
-                abs_left = -abs_left;             // make it positive
+                if (sample < 0)                   // take absolute value
+                    sample = -sample;             // make positive
 
-            // compute absolute value of right sample
-            int abs_right = right_sample;          // start with the raw value
-            if (abs_right < 0)                    // if negative
-                abs_right = -abs_right;           // make it positive
-
-            // add both channels to the running sum
-            sum = sum + abs_left + abs_right;     // accumulate total loudness
-
-            sample_count++;                       // increment sample counter
-
-            // after one window, compute average and display
-            if (sample_count >= WINDOW_SIZE) {    // if we've collected enough samples
-                // compute average amplitude across both channels
-                int average = (int)(sum / (WINDOW_SIZE * 2)); // divide by total number of values
-
-                // apply noise gate
-                if (average < NOISE_THRESHOLD)    // if below noise floor
-                    average = 0;                  // treat as silence
-
-                display_hex(average);             // display average amplitude on HEX3-0
-
-                sum = 0;                          // reset sum for next window
-                sample_count = 0;                 // reset sample counter
+                sum = sum + sample;               // add to running total
+                count++;                          // one more sample collected
             }
         }
+
+        int average = (int)(sum / 4000);          // compute the average amplitude
+
+        display_hex(average);                     // display it raw on HEX3-0
     }
 
     return 0;                                     // never reached
@@ -84,11 +62,11 @@ void display_hex(int value) {
     int digit2 = (value >> 8) & 0xF;             // extract bits 11:8
     int digit3 = (value >> 12) & 0xF;            // extract bits 15:12
 
-    int hex_display = 0;                          // build the full 32-bit register value
-    hex_display = hex_display | hex_codes[digit0];             // HEX0 occupies bits 7:0
-    hex_display = hex_display | (hex_codes[digit1] << 8);      // HEX1 occupies bits 15:8
-    hex_display = hex_display | (hex_codes[digit2] << 16);     // HEX2 occupies bits 23:16
-    hex_display = hex_display | (hex_codes[digit3] << 24);     // HEX3 occupies bits 31:24
+    int hex_display = 0;                          // start with all segments off
+    hex_display = hex_display | hex_codes[digit0];             // HEX0
+    hex_display = hex_display | (hex_codes[digit1] << 8);      // HEX1
+    hex_display = hex_display | (hex_codes[digit2] << 16);     // HEX2
+    hex_display = hex_display | (hex_codes[digit3] << 24);     // HEX3
 
-    *HEX_ptr = hex_display;                      // write all four displays at once
+    *HEX_ptr = hex_display;                      // write all four displays
 }
