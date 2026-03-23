@@ -1,7 +1,8 @@
-#define AUDIO_BASE   0xFF203040
-#define HEX3_0_BASE  0xFF200020
-#define HEX5_4_BASE  0xFF200030
-#define DECAY_PERIOD 4000
+#define AUDIO_BASE    0xFF203040
+#define HEX3_0_BASE   0xFF200020
+#define HEX5_4_BASE   0xFF200030
+#define DECAY_PERIOD  4000
+#define NOISE_THRESH  500        /* ignore samples below this level */
 
 int seg7_table[16] = {
     0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7D, 0x07,
@@ -31,14 +32,15 @@ int main(void) {
         left  = *(audio_ptr + 2);
         right = *(audio_ptr + 3);
 
-        /* abs of each channel */
         if (left < 0)  left  = -left;
         if (right < 0) right = -right;
 
-        /* max of the two */
         amplitude = (left > right) ? left : right;
 
-        /* update peak with slow decay */
+        /* noise gate: ignore anything below threshold */
+        if (amplitude < NOISE_THRESH)
+            amplitude = 0;
+
         if (amplitude >= peak) {
             peak = amplitude;
             decay_counter = 0;
@@ -51,7 +53,7 @@ int main(void) {
             }
         }
 
-        /* display peak on HEX5..HEX0 */
+        /* display peak across HEX5..HEX0 */
         *hex3_0 = seg7_table[peak & 0xF]
                 | (seg7_table[(peak >> 4)  & 0xF] << 8)
                 | (seg7_table[(peak >> 8)  & 0xF] << 16)
