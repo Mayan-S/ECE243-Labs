@@ -4,6 +4,7 @@
  *
  * 2D wave propagation simulator on the DE1-SoC.
  * Microphone input drives wave amplitude at the center of the grid.
+ * PS/2 mouse left-click injects waves at the cursor position.
  * Switches control damping. KEY0 resets the simulation.
  * HEX1–HEX0 display the current mic amplitude (0x00–0xFF).
  * VGA double-buffered output at 160×120 grid (2×2 pixel blocks).
@@ -24,6 +25,7 @@
 #define AUDIO_BASE  0xFF203040
 #define HEX3_0_BASE 0xFF200020
 #define HEX5_4_BASE 0xFF200030
+#define PS2_BASE    0xFF200100    /* PS/2 port (keyboard/mouse) */
 
 /* ── Grid dimensions (half-res: each grid cell = 2×2 VGA pixels) ── */
 #define GRID_W  160
@@ -38,10 +40,17 @@
 
 /* ── Microphone scaling ── */
 #define MIC_PRACTICAL_MAX 0x400000  /* observed loud-as-possible ceiling */
-#define MIC_THRESHOLD     15         /* ignore mic amplitudes below this  */
+#define MIC_THRESHOLD     0x20      /* ignore mic amplitudes at 0x20 or below */
+
+/* ── Mouse settings ── */
+#define MOUSE_DROP_AMP    (-128)    /* amplitude injected on mouse click */
 
 /* ── Global variables ── */
 volatile int pixel_buffer_start;
+
+/* Mouse cursor position (in grid coordinates: 0–159 x, 0–119 y) */
+int mouse_x = GRID_W / 2;
+int mouse_y = GRID_H / 2;
 
 short int Buffer1[240][512];
 short int Buffer2[240][512];
@@ -77,6 +86,8 @@ void inject_source(short int grid_curr[GRID_H][GRID_W],
                    int cy, int cx, short int amplitude);
 void display_hex(unsigned int value);
 int  read_mic_amplitude(void);
+void mouse_init(void);
+int  mouse_read(int *dx, int *dy, int *buttons);
 
 /* ── Helper ── */
 static int abs_val(int x) {
@@ -107,6 +118,7 @@ int main(void) {
 
     initialize_LUT();
     clear_grids(grid_curr, grid_prev, grid_next);
+    mouse_init();
     display_hex(0);
 
     /* ── Main loop ── */
@@ -141,12 +153,53 @@ int main(void) {
             inject_source(grid_curr, GRID_H / 2, GRID_W / 2, source_amp);
         }
 
+        /* 4b. Read mouse — update cursor, inject wave on left-click */
+        {
+            int dx, dy, buttons;
+            while (mouse_read(&dx, &dy, &buttons)) {
+                /* Scale movement down — raw PS/2 counts are too fast
+                 * for a 160×120 grid. Divide by 4 with rounding. */
+                mouse_x += (dx >= 0) ? ((dx + 2) >> 2) : -(((-dx) + 2) >> 2);
+                mouse_y -= (dy >= 0) ? ((dy + 2) >> 2) : -(((-dy) + 2) >> 2);
+
+                /* Clamp to grid bounds */
+                if (mouse_x < 1)              mouse_x = 1;
+                if (mouse_x >= GRID_W - 1)    mouse_x = GRID_W - 2;
+                if (mouse_y < 1)              mouse_y = 1;
+                if (mouse_y >= GRID_H - 1)    mouse_y = GRID_H - 2;
+
+                /* Left-click injects a wave at the cursor position */
+                if (buttons & 0x1) {
+                    inject_source(grid_curr, mouse_y, mouse_x, MOUSE_DROP_AMP);
+                }
+            }
+        }
+
         /* 5. Run wave physics — writes next state into grid_next */
         wave_physics(grid_next, grid_curr, grid_prev, damping_factor);
 
         /* 6. Render the new state (grid_next) to back buffer */
         pixel_buffer_start = *(pixel_ctrl_ptr + 1);
         rendering_vga(grid_next);
+
+        /* 6b. Draw mouse cursor as a small white crosshair */
+        {
+            int cx = mouse_x * 2;  /* scale to VGA coordinates */
+            int cy = mouse_y * 2;
+            short int cursor_color = 0xFFFF;  /* white */
+            /* Horizontal bar (5 pixels) */
+            for (int i = -2; i <= 2; i++) {
+                int px = cx + i;
+                if (px >= 0 && px < 320)
+                    plot_pixel(px, cy, cursor_color);
+            }
+            /* Vertical bar (5 pixels) */
+            for (int i = -2; i <= 2; i++) {
+                int py = cy + i;
+                if (py >= 0 && py < 240)
+                    plot_pixel(cx, py, cursor_color);
+            }
+        }
 
         /* 7. Swap VGA front/back buffers */
         swap_buffers_on_vsync();
@@ -388,4 +441,132 @@ void inject_source(short int grid_curr[GRID_H][GRID_W],
         /* Tiny droplet: single pixel */
         grid_curr[cy][cx] = amplitude * AMP_SCALE;
     }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════
+ *  PS/2 Mouse
+ *
+ *  The PS/2 port is at 0xFF200100:
+ *    Read:  bits 7:0 = data byte, bit 15 = RVALID
+ *    Write: bits 7:0 = command byte to send to mouse
+ *
+ *  Mouse packets are 3 bytes:
+ *    Byte 0: [Yovf Xovf Ysign Xsign 1 Mid Right Left]
+ *    Byte 1: X movement (unsigned, sign from byte 0 bit 4)
+ *    Byte 2: Y movement (unsigned, sign from byte 0 bit 5)
+ * ══════════════════════════════════════════════════════════════════ */
+
+/* Read one byte from PS/2 if available. Returns 1 on success, 0 if nothing. */
+static int ps2_read_byte(unsigned char *byte) {
+    volatile int *ps2_ptr = (int *)PS2_BASE;
+    int data = *ps2_ptr;
+    if (data & 0x8000) {       /* bit 15 = RVALID */
+        *byte = data & 0xFF;
+        return 1;
+    }
+    return 0;
+}
+
+/* Write one byte to the PS/2 device. */
+static void ps2_write_byte(unsigned char byte) {
+    volatile int *ps2_ptr = (int *)PS2_BASE;
+    *ps2_ptr = byte;
+}
+
+/*
+ * Initialize the PS/2 mouse.
+ * Send reset (0xFF), wait for ACK + self-test + ID,
+ * then send enable data reporting (0xF4), wait for ACK.
+ * Drains the FIFO after init to prevent stale bytes from
+ * desyncing the state machine.
+ */
+void mouse_init(void) {
+    unsigned char byte;
+    int timeout;
+
+    /* Drain any stale data in the PS/2 FIFO */
+    while (ps2_read_byte(&byte));
+
+    /* Send reset command */
+    ps2_write_byte(0xFF);
+
+    /* Wait for ACK (0xFA), self-test pass (0xAA), and mouse ID (0x00) */
+    for (int i = 0; i < 3; i++) {
+        timeout = 2000000;
+        while (timeout > 0) {
+            if (ps2_read_byte(&byte)) break;
+            timeout--;
+        }
+    }
+
+    /* Small delay to let the mouse settle */
+    for (volatile int d = 0; d < 500000; d++);
+
+    /* Drain anything left over from reset */
+    while (ps2_read_byte(&byte));
+
+    /* Send enable data reporting */
+    ps2_write_byte(0xF4);
+
+    /* Wait for ACK */
+    timeout = 2000000;
+    while (timeout > 0) {
+        if (ps2_read_byte(&byte)) break;
+        timeout--;
+    }
+
+    /* Drain anything left over — start clean */
+    while (ps2_read_byte(&byte));
+}
+
+/*
+ * Try to read a complete 3-byte mouse packet (non-blocking).
+ * Uses a static state machine so partial packets are accumulated
+ * across multiple calls from the main loop.
+ *
+ * Returns 1 if a complete packet was read (dx, dy, buttons filled in).
+ * Returns 0 if no complete packet yet (try again next frame).
+ */
+int mouse_read(int *dx, int *dy, int *buttons) {
+    static int state = 0;         /* which byte we're waiting for (0, 1, 2) */
+    static unsigned char pkt[3];  /* accumulated packet bytes */
+    unsigned char byte;
+
+    while (ps2_read_byte(&byte)) {
+        if (state == 0) {
+            /* Byte 0: bit 3 must always be 1 for a valid mouse packet.
+             * Bits 7:6 are X/Y overflow — discard if set. */
+            if ((byte & 0x08) && !(byte & 0xC0)) {
+                pkt[0] = byte;
+                state = 1;
+            }
+            /* else: out of sync or overflow, discard and keep looking */
+        }
+        else if (state == 1) {
+            pkt[1] = byte;
+            state = 2;
+        }
+        else if (state == 2) {
+            pkt[2] = byte;
+            state = 0;
+
+            /* Decode the complete packet */
+            *buttons = pkt[0] & 0x07;   /* bits 2:0 = Mid, Right, Left */
+
+            /* X movement: unsigned byte + sign bit from status */
+            *dx = pkt[1];
+            if (pkt[0] & 0x10)          /* X sign bit */
+                *dx |= 0xFFFFFF00;      /* sign-extend to negative */
+
+            /* Y movement: unsigned byte + sign bit from status */
+            *dy = pkt[2];
+            if (pkt[0] & 0x20)          /* Y sign bit */
+                *dy |= 0xFFFFFF00;      /* sign-extend to negative */
+
+            return 1;  /* complete packet */
+        }
+    }
+
+    return 0;  /* no complete packet yet */
 }
