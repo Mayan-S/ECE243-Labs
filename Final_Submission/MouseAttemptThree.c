@@ -162,11 +162,11 @@ int main(void) {
                 mouse_x += (dx >= 0) ? ((dx + 2) >> 2) : -(((-dx) + 2) >> 2);
                 mouse_y -= (dy >= 0) ? ((dy + 2) >> 2) : -(((-dy) + 2) >> 2);
 
-                /* Clamp to grid bounds */
-                if (mouse_x < 1)              mouse_x = 1;
-                if (mouse_x >= GRID_W - 1)    mouse_x = GRID_W - 2;
-                if (mouse_y < 1)              mouse_y = 1;
-                if (mouse_y >= GRID_H - 1)    mouse_y = GRID_H - 2;
+                /* Clamp to grid bounds — stay 4 cells from edge */
+                if (mouse_x < 4)              mouse_x = 4;
+                if (mouse_x >= GRID_W - 4)    mouse_x = GRID_W - 5;
+                if (mouse_y < 4)              mouse_y = 4;
+                if (mouse_y >= GRID_H - 4)    mouse_y = GRID_H - 5;
 
                 /* Left-click injects a wave at the cursor position */
                 if (buttons & 0x1) {
