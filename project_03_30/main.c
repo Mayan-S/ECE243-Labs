@@ -1,4 +1,3 @@
-#define RAIN_N 17035
 #include "drop_sample.h"
 
 // Global variables
