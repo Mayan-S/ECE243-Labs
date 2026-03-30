@@ -213,14 +213,10 @@ int main(void) {
                 else if (mic_amp >= 100) size = 1;
                 else                     size = 0;
                 inject_source_sized(grid_curr, mouse_y, mouse_x, MOUSE_DROP_AMP, size);
-                /* Trigger splash sound (not during rain mode) */
-                trigger_splash(MOUSE_DROP_AMP);
             } else {
                 /* Original behavior: loudness controls both amplitude and size */
                 short int source_amp = (short int)(-(mic_amp >> 1));
                 inject_source(grid_curr, GRID_H / 2, GRID_W / 2, source_amp);
-                /* Trigger splash sound (not during rain mode) */
-                trigger_splash(source_amp);
             }
         }
 
