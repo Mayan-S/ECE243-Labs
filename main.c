@@ -576,7 +576,7 @@ void rendering_vga(short int current[GRID_H][GRID_W]) {
             plot_2X_pixel(x, y, wave_colors[color_index]);
         }
 
-        if (y%20 == 0){
+        if (y%10 == 0){
             if(rain_mode){
                 output_audio();
             }
