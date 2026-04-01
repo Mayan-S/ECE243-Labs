@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
-      "cwd": "c:/Users/mayan/projects/ECE243-Labs-/lab6/lab6",
-      "program": "c:/Users/mayan/projects/ECE243-Labs-/lab6/lab6/build/Debug/outDebug",
+      "cwd": "c:/Users/mayan/projects/ECE243-Labs-/project_04_01",
+      "program": "c:/Users/mayan/projects/ECE243-Labs-/project_04_01/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
